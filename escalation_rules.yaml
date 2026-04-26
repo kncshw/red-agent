@@ -1,0 +1,22 @@
+# Escalation rules for the red team agent.
+# These rules are injected into the LLM escalation decision prompt.
+# Edit this file to tune what gets escalated — no code changes needed.
+
+# Services that must ALWAYS be escalated regardless of authentication status.
+# Reason is included in the escalation note.
+always_escalate:
+  - name: "FortiGate SSL-VPN"
+    reason: >
+      FortiGate SSL-VPN portals have a long history of critical pre-auth vulnerabilities
+      (CVE-2024-21762 CVSS 9.8, CVE-2023-27997 CVSS 9.8, CVE-2022-42475 CVSS 9.3).
+      Public exposure of any SSL-VPN portal must be reviewed immediately.
+      Identify as FortiGate SSL-VPN ONLY if the response CONTENT confirms it:
+        - SVPNCOOKIE or SVPNFTPCOOKIE present in HTTP response headers, OR
+        - The actual body of /remote/login contains "with-sslvpn", "sslvpn-left",
+          or action="/remote/logincheck"
+      Do NOT escalate based on the path name "/remote/login" alone — many Fortinet
+      devices have this path but are not SSL-VPN portals. The page CONTENT must confirm it.
+      Do NOT escalate if the response is a 5xx error or generic error page.
+
+# All other services: escalate only if no authentication is detected.
+# This is the default behaviour — no explicit list needed.

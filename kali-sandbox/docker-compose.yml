@@ -1,0 +1,16 @@
+services:
+  kali-sandbox:
+    build: .
+    image: kali-sandbox:latest
+    container_name: kali-sandbox
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    environment:
+      - KALI_API_TOKEN=${KALI_API_TOKEN}
+      - COMMAND_TIMEOUT=${COMMAND_TIMEOUT:-120}
+      - MAX_OUTPUT_CHARS=${MAX_OUTPUT_CHARS:-8000}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
