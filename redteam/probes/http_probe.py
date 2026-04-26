@@ -73,6 +73,7 @@ class HttpProbeResult:
     headers: str
     markdown: str
     hints: str = ""
+    verified_url: str = ""          # most specific URL that returned real content
     identification: ServiceIdentification | None = None
     escalation_note: str | None = None
     needs_escalation: bool = False
@@ -118,8 +119,12 @@ _FINGERPRINT_PATHS = [
 ]
 
 
-async def _fetch_page(client: httpx.AsyncClient, ip: str, port: int) -> tuple[str, str, str, str]:
-    """Returns (status_line, headers, html_body, fingerprint_hints) via Kali proxy."""
+async def _fetch_page(client: httpx.AsyncClient, ip: str, port: int) -> tuple[str, str, str, str, str]:
+    """Returns (status_line, headers, html_body, fingerprint_hints, verified_path) via Kali proxy.
+
+    verified_path is the most specific path that returned real content
+    (a fingerprint path if one hit, otherwise "/").
+    """
     scheme = "https" if port in (443, 8443, 9443, 1443) else "http"
     url = f"{scheme}://{ip}:{port}/"
 
@@ -137,7 +142,8 @@ async def _fetch_page(client: httpx.AsyncClient, ip: str, port: int) -> tuple[st
         if cert.strip():
             hints += f"\n--- SSL certificate ---\n{cert.strip()}\n"
 
-    # Try fingerprint paths — first hit wins
+    # Try fingerprint paths — first hit wins; record the path for the verified URL
+    verified_path = "/"
     for path in _FINGERPRINT_PATHS:
         probe = await _kali_exec(
             client,
@@ -145,6 +151,7 @@ async def _fetch_page(client: httpx.AsyncClient, ip: str, port: int) -> tuple[st
         )
         if probe and "404" not in probe[:50] and len(probe) > 10:
             hints += f"\n--- {path} ---\n{probe[:500]}\n"
+            verified_path = path
             break  # one good hint is enough
 
     # Always run gobuster — LLM needs full picture regardless of auth status
@@ -159,7 +166,7 @@ async def _fetch_page(client: httpx.AsyncClient, ip: str, port: int) -> tuple[st
         hints += f"\n--- gobuster paths ---\n{gobuster.strip()}\n"
 
     status = next((l for l in headers_raw.splitlines() if l.startswith("HTTP/")), "unknown")
-    return status, headers_raw, body_raw, hints
+    return status, headers_raw, body_raw, hints, verified_path
 
 
 def _to_markdown(html: str) -> str:
@@ -338,9 +345,12 @@ async def probe_http(ip: str, port: int, alert: bool = True) -> HttpProbeResult:
 
     async with httpx.AsyncClient(verify=False) as client:
         log.info("Fetching %s via Kali proxy", url)
-        status, headers, html, hints = await _fetch_page(client, ip, port)
+        status, headers, html, hints, verified_path = await _fetch_page(client, ip, port)
 
     markdown = _to_markdown(html)
+
+    scheme = "https" if port in (443, 8443, 9443, 1443) else "http"
+    verified_url = f"{scheme}://{ip}:{port}{verified_path}"
 
     result = HttpProbeResult(
         ip=ip, port=port, url=url,
@@ -348,6 +358,7 @@ async def probe_http(ip: str, port: int, alert: bool = True) -> HttpProbeResult:
         headers=headers,
         markdown=markdown,
         hints=hints,
+        verified_url=verified_url,
     )
 
     # Step 1 — identify
@@ -405,6 +416,7 @@ def _alert_human(result: HttpProbeResult) -> None:
         escalation_note=result.escalation_note or "",
         evidence=ident.evidence if ident else "",
         auth_status=auth_status,
+        target_url=result.verified_url or None,
     )
     if not sent:
         log.warning("Email not sent — configure EMAIL_SERVER/USERNAME/PASSWORD in .env to enable")
@@ -467,6 +479,7 @@ def consolidate_and_alert(ip: str, results: list[HttpProbeResult]) -> None:
         escalation_note=combined_note,
         evidence=evidence,
         auth_status=auth_status,
+        target_url=findings[0].verified_url or None,
     )
     if not sent:
         log.warning("Consolidated email not sent for %s — configure SMTP in .env", ip)
