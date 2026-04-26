@@ -393,12 +393,18 @@ def _alert_human(result: HttpProbeResult) -> None:
     print("!" * 60 + "\n")
 
     # Send email — fail-open (SMTP unconfigured = log only)
+    auth_status = (
+        ident.auth_type
+        if ident and ident.has_auth and ident.auth_type not in ("none", "")
+        else "none"
+    )
     sent = send_red_team_escalation(
         ip=result.ip,
         port=result.port,
         application=f"{app}{ver}",
         escalation_note=result.escalation_note or "",
         evidence=ident.evidence if ident else "",
+        auth_status=auth_status,
     )
     if not sent:
         log.warning("Email not sent — configure EMAIL_SERVER/USERNAME/PASSWORD in .env to enable")
@@ -440,12 +446,27 @@ def consolidate_and_alert(ip: str, results: list[HttpProbeResult]) -> None:
     print(f"\n{combined_note}")
     print("!" * 60 + "\n")
 
+    # auth_status: "none" if all no-auth; otherwise the auth_type of the first finding with auth
+    auth_status = "none"
+    for r in findings:
+        if r.identification and r.identification.has_auth and r.identification.auth_type not in ("none", ""):
+            auth_status = r.identification.auth_type
+            break
+
+    # Evidence: per-port summary from actual identification results
+    evidence_parts = [
+        f"port {r.port}: {r.identification.evidence}"
+        for r in findings if r.identification and r.identification.evidence
+    ]
+    evidence = "; ".join(evidence_parts) or f"{len(findings)} port(s) flagged"
+
     sent = send_red_team_escalation(
         ip=ip,
         port=findings[0].port,
         application=apps,
         escalation_note=combined_note,
-        evidence=f"{len(findings)} port(s) with findings: {', '.join(str(r.port) for r in findings)}",
+        evidence=evidence,
+        auth_status=auth_status,
     )
     if not sent:
         log.warning("Consolidated email not sent for %s — configure SMTP in .env", ip)
