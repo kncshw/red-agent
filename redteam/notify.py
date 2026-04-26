@@ -59,7 +59,7 @@ def send_red_team_escalation(
     escalation_note: str,
     evidence: str,
     auth_status: str = "none",
-    target_url: str | None = None,
+    target_url: str = "",
 ) -> bool:
     """Send a red team escalation email. Returns True on success."""
     cfg = _smtp_config()
@@ -78,10 +78,6 @@ def send_red_team_escalation(
         headline     = f"identified a <strong>high-risk service ({_html.escape(auth_status)} auth)</strong> that requires immediate review"
         auth_badge   = f'<span style="background:#e65100; color:white; padding:2px 8px; border-radius:3px; font-weight:bold;">{_html.escape(auth_status.upper())}</span>'
         auth_plain   = auth_status.upper()
-
-    if not target_url:
-        scheme     = "https" if port in (443, 8443, 9443, 1443) else "http"
-        target_url = f"{scheme}://{ip}:{port}/"
     note_html     = _html.escape(escalation_note).replace("\n", "<br>\n")
     evidence_html = _html.escape(evidence)
 

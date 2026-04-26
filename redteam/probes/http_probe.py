@@ -416,7 +416,7 @@ def _alert_human(result: HttpProbeResult) -> None:
         escalation_note=result.escalation_note or "",
         evidence=ident.evidence if ident else "",
         auth_status=auth_status,
-        target_url=result.verified_url or None,
+        target_url=result.verified_url,
     )
     if not sent:
         log.warning("Email not sent — configure EMAIL_SERVER/USERNAME/PASSWORD in .env to enable")
@@ -479,7 +479,7 @@ def consolidate_and_alert(ip: str, results: list[HttpProbeResult]) -> None:
         escalation_note=combined_note,
         evidence=evidence,
         auth_status=auth_status,
-        target_url=findings[0].verified_url or None,
+        target_url=findings[0].verified_url,
     )
     if not sent:
         log.warning("Consolidated email not sent for %s — configure SMTP in .env", ip)
