@@ -78,6 +78,8 @@ def send_red_team_escalation(
         auth_badge   = f'<span style="background:#e65100; color:white; padding:2px 8px; border-radius:3px; font-weight:bold;">{_html.escape(auth_status.upper())}</span>'
         auth_plain   = auth_status.upper()
 
+    scheme        = "https" if port in (443, 8443, 9443, 1443) else "http"
+    target_url    = f"{scheme}://{ip}:{port}/"
     note_html     = _html.escape(escalation_note).replace("\n", "<br>\n")
     evidence_html = _html.escape(evidence)
 
@@ -92,8 +94,8 @@ def send_red_team_escalation(
 <table style="border-collapse: collapse; width: 100%;">
   <tr><td style="padding:4px 12px; font-weight:bold; width:140px;">Target</td>
       <td style="padding:4px 12px;">
-        <a href="http://{_html.escape(ip)}:{port}/" style="font-family:monospace;">
-          http://{_html.escape(ip)}:{port}/
+        <a href="{_html.escape(target_url)}" style="font-family:monospace;">
+          {_html.escape(target_url)}
         </a>
       </td></tr>
   <tr><td style="padding:4px 12px; font-weight:bold;">Application</td>
@@ -111,7 +113,7 @@ def send_red_team_escalation(
 
 <h2 style="color: #1a237e; border-bottom: 2px solid #1a237e; padding-bottom: 4px;">Suggested Actions</h2>
 <ol>
-  <li>Verify the finding: <code>curl -sk http://{_html.escape(ip)}:{port}/</code></li>
+  <li>Verify the finding: <code>curl -sk {_html.escape(target_url)}</code></li>
   <li>Identify the asset owner via NetBox or CMDB</li>
   <li>Apply network ACL to block public access immediately</li>
   <li>Re-scan after remediation to confirm closure</li>
@@ -125,14 +127,14 @@ def send_red_team_escalation(
 
     plain = (
         f"{subject}\n\n"
-        f"Target      : {ip}:{port}\n"
+        f"Target      : {target_url}\n"
         f"Application : {application}\n"
         f"Auth Status : {auth_plain}\n"
         f"Evidence    : {evidence}\n\n"
         f"--- AI Escalation Note ---\n"
         f"{escalation_note}\n\n"
         f"--- Suggested Actions ---\n"
-        f"1. Verify: curl -sk http://{ip}:{port}/\n"
+        f"1. Verify: curl -sk {target_url}\n"
         f"2. Identify asset owner via NetBox/CMDB\n"
         f"3. Apply network ACL to block public access immediately\n"
         f"4. Re-scan after remediation to confirm closure\n\n"
