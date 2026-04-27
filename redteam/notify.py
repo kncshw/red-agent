@@ -105,7 +105,7 @@ def send_red_team_escalation(
 </table>
 
 <h2 style="color: #b71c1c; border-bottom: 2px solid #b71c1c; padding-bottom: 4px;">AI Escalation Note</h2>
-<div style="background:#fff3e0; padding:12px; border-left:4px solid #b71c1c; font-size:14px; white-space:pre-wrap;">
+<div style="background:#fff3e0; padding:12px; border-left:4px solid #b71c1c; font-size:16px; white-space:pre-wrap;">
 {note_html}
 </div>
 
